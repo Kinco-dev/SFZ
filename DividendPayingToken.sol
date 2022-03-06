@@ -43,8 +43,10 @@ contract DividendPayingToken is ERC20, DividendPayingTokenInterface, DividendPay
 
   uint256 public totalDividendsDistributed;
 
-  constructor(string memory _name, string memory _symbol) ERC20(_name, _symbol) {
+  uint16 private _gasForWithdrawingDividendOfUser;
 
+  constructor(string memory _name, string memory _symbol) ERC20(_name, _symbol) {
+    _gasForWithdrawingDividendOfUser = 3000;
   }
 
   /// @dev Distributes dividends whenever ether is paid to this contract.
@@ -93,7 +95,7 @@ contract DividendPayingToken is ERC20, DividendPayingTokenInterface, DividendPay
     if (_withdrawableDividend > 0) {
       withdrawnDividends[user] = withdrawnDividends[user].add(_withdrawableDividend);
       emit DividendWithdrawn(user, _withdrawableDividend);
-      (bool success,) = user.call{value: _withdrawableDividend, gas: 3000}("");
+      (bool success,) = user.call{value: _withdrawableDividend, gas: _gasForWithdrawingDividendOfUser}("");
 
       if(!success) {
         withdrawnDividends[user] = withdrawnDividends[user].sub(_withdrawableDividend);
@@ -104,6 +106,11 @@ contract DividendPayingToken is ERC20, DividendPayingTokenInterface, DividendPay
     }
 
     return 0;
+  }
+
+  function setGasForWithdrawingDividendOfUser(uint16 newGas) public{
+    require(newGas != _gasForWithdrawingDividendOfUser, "Gas has already this value");
+    _gasForWithdrawingDividendOfUser = newGas;
   }
 
 

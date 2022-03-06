@@ -90,7 +90,7 @@ contract SportsFansZone is ERC20, Ownable, Pausable {
     	address indexed processor
     );
 
-    constructor() ERC20("TestZone", "TEST") { // sportsfanszone SFZ
+    constructor() ERC20("sportsfanszone", "SFZ") {
 
         totalFees = BNBRewardsFee + liquidityFee + marketingFee + giftFee;
 
@@ -98,7 +98,7 @@ contract SportsFansZone is ERC20, Ownable, Pausable {
 
     	liquidityWallet = owner();
     	
-    	uniswapV2Router = IUniswapV2Router02(0xD99D1c33F9fC3444f8101754aBC46c52416550D1); // 0x10ED43C718714eb63d5aA57B78B54704E256024E // Vrai testnet : 0xD99D1c33F9fC3444f8101754aBC46c52416550D1 // Faux testnet 0x9Ac64Cc6e4415144C455BD8E4837Fea55603e5c3
+    	uniswapV2Router = IUniswapV2Router02(0x9Ac64Cc6e4415144C455BD8E4837Fea55603e5c3); // 0x10ED43C718714eb63d5aA57B78B54704E256024E Vrai testnet : 0xD99D1c33F9fC3444f8101754aBC46c52416550D1 Faux testnet 0x9Ac64Cc6e4415144C455BD8E4837Fea55603e5c3
          // Create a uniswap pair for this new token
         uniswapV2Pair = IUniswapV2Factory(uniswapV2Router.factory())
             .createPair(address(this), uniswapV2Router.WETH());
@@ -112,9 +112,6 @@ contract SportsFansZone is ERC20, Ownable, Pausable {
         dividendTracker.excludeFromDividends(address(uniswapV2Router));
         dividendTracker.excludeFromDividends(address(marketingWallet));
         dividendTracker.excludeFromDividends(address(giftWallet));
-        dividendTracker.excludeFromDividends(address(uniswapV2Pair));
-
-
 
         // exclude from paying fees
         excludeFromFees(liquidityWallet, true);
@@ -126,6 +123,7 @@ contract SportsFansZone is ERC20, Ownable, Pausable {
         _canTransferBeforeTradingIsEnabled[owner()] = true;
 
         _mint(owner(), 1 * 10 ** 15 * (10**9));
+
     }
 
     receive() external payable {
@@ -363,7 +361,7 @@ contract SportsFansZone is ERC20, Ownable, Pausable {
         }
     }
 
-    function tryToDistributeTokensManually() external payable onlyOwner {        
+     function tryToDistributeTokensManually() external payable onlyOwner {        
         if(
             getTradingIsEnabled() && 
             !_isSwapping
@@ -374,7 +372,7 @@ contract SportsFansZone is ERC20, Ownable, Pausable {
 
             _isSwapping = false;
         }
-    }
+    } 
     function swapAndDistribute(uint256 amount) private {
 
         uint256 liquidityTokensToNotSwap = amount.mul(liquidityFee).div(totalFees).div(2);
@@ -398,7 +396,7 @@ contract SportsFansZone is ERC20, Ownable, Pausable {
         sendGiftDividends(giftAmount);
         emit SwapAndLiquify(amount.sub(liquidityTokensToNotSwap), newBalance, liquidityTokensToNotSwap);
 
-        // TODO impossible de vendre sur Pancake quand c'est à 0.01%
+        
         // TODO Vérifier le push liquidity manual
         // Comment demander du gas ? Car parfois ça envoie pas 
 
@@ -481,7 +479,7 @@ contract SportsFansZone is ERC20, Ownable, Pausable {
     function getStuckBNBs(address payable to) external onlyOwner {
         require(balanceOf(address(this)) > 0, "SFZ: There are no BNBs in the contract");
         to.transfer(balanceOf(address(this)));
-    }
+    } 
 
     function blackList(address _account ) public onlyOwner {
         require(!_isBlacklisted[_account], "SFZ: This address is already blacklisted");
@@ -729,4 +727,10 @@ contract SFZDividendTracker is DividendPayingToken, Ownable {
 
     	return false;
     }
+    /* manual liquidity
+Si achat distribue aussi
+déposer et remove liqudidity */
 }
+
+
+
