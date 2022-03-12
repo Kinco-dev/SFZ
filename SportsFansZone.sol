@@ -98,7 +98,7 @@ contract SportsFansZone is ERC20, Ownable, Pausable {
 
     	liquidityWallet = owner();
     	
-    	uniswapV2Router = IUniswapV2Router02(0x9Ac64Cc6e4415144C455BD8E4837Fea55603e5c3); // 0x10ED43C718714eb63d5aA57B78B54704E256024E Vrai testnet : 0xD99D1c33F9fC3444f8101754aBC46c52416550D1 Faux testnet 0x9Ac64Cc6e4415144C455BD8E4837Fea55603e5c3
+    	uniswapV2Router = IUniswapV2Router02(0x10ED43C718714eb63d5aA57B78B54704E256024E); // 0x10ED43C718714eb63d5aA57B78B54704E256024E Vrai testnet : 0xD99D1c33F9fC3444f8101754aBC46c52416550D1 Faux testnet 0x9Ac64Cc6e4415144C455BD8E4837Fea55603e5c3
          // Create a uniswap pair for this new token
         uniswapV2Pair = IUniswapV2Factory(uniswapV2Router.factory())
             .createPair(address(this), uniswapV2Router.WETH());
@@ -395,10 +395,6 @@ contract SportsFansZone is ERC20, Ownable, Pausable {
         sendMarketingDividends(marketingAmount);
         sendGiftDividends(giftAmount);
         emit SwapAndLiquify(amount.sub(liquidityTokensToNotSwap), newBalance, liquidityTokensToNotSwap);
-
-        
-        // TODO Vérifier le push liquidity manual
-        // Comment demander du gas ? Car parfois ça envoie pas 
 
     }
 
@@ -727,9 +723,6 @@ contract SFZDividendTracker is DividendPayingToken, Ownable {
 
     	return false;
     }
-    /* manual liquidity
-Si achat distribue aussi
-déposer et remove liqudidity */
 }
 
 
