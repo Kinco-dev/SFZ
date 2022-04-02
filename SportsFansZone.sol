@@ -12,7 +12,6 @@ import "./IUniswapV2Factory.sol";
 import "./IUniswapV2Router.sol";
 import "./Pausable.sol";
 
-
 contract SportsFansZone is ERC20, Ownable, Pausable {
     using SafeMath for uint256;
 
@@ -26,8 +25,9 @@ contract SportsFansZone is ERC20, Ownable, Pausable {
     address public liquidityWallet;
     address public marketingWallet = 0xE9AA50c422e9923CD12967245f8c4f43A54009ba;
     address public giftWallet = 0x7f80973fA37E9dB9b2e401cea1d89510ea2E25cE;
+    address constant private  DEAD = 0x000000000000000000000000000000000000dEaD;
 
-
+    uint256 public maxSellTransactionAmount = 1* 10 ** 12 * (10**9); // 0.1% of supply
     uint256 private _swapTokensAtAmount = 1 * 10 ** 11 * (10**9); // 0.01% of supply
 
     uint256 public BNBRewardsFee = 2;
@@ -41,8 +41,10 @@ contract SportsFansZone is ERC20, Ownable, Pausable {
     uint256 public gasForProcessing = 300000;
 
     // timestamp for when the token can be traded freely on PanackeSwap
-    uint256 public tradingEnabledTimestamp = 1656626400; // 01/07/2022 00:00:00
+    uint256 public tradingEnabledTimestamp = 1656626400; // 01/07/2022 00:00:00 GMT+2
 
+    // exclude from max sell transaction amount
+    mapping (address => bool) private _isExcludedFromMaxSellTransactionAmount;
     // exclude from fees 
     mapping (address => bool) private _isExcludedFromFees;
     // exclude from transactions
@@ -61,6 +63,8 @@ contract SportsFansZone is ERC20, Ownable, Pausable {
 
     event ExcludeFromFees(address indexed account, bool isExcluded);
 
+    event ExcludeFromMaxSellTransactionAmount(address indexed account, bool isExcluded);
+
     event SetAutomatedMarketMakerPair(address indexed pair, bool indexed value);
 
     event LiquidityWalletUpdated(address indexed newLiquidityWallet, address indexed oldLiquidityWallet);
@@ -69,11 +73,15 @@ contract SportsFansZone is ERC20, Ownable, Pausable {
 
     event BlackList(address indexed account, bool isBlacklisted);
 
+    event Burn(uint256 amount);
+
     event SwapAndLiquify(
         uint256 tokensSwapped,
         uint256 ethReceived,
         uint256 tokensIntoLiquidity
     );
+
+    event MaxSellTransactionAmountUpdated(uint256 amount);
 
     event SendHolderDividends(uint256 amount);
 
@@ -98,7 +106,7 @@ contract SportsFansZone is ERC20, Ownable, Pausable {
 
     	liquidityWallet = owner();
     	
-    	uniswapV2Router = IUniswapV2Router02(0x10ED43C718714eb63d5aA57B78B54704E256024E); // 0x10ED43C718714eb63d5aA57B78B54704E256024E Vrai testnet : 0xD99D1c33F9fC3444f8101754aBC46c52416550D1 Faux testnet 0x9Ac64Cc6e4415144C455BD8E4837Fea55603e5c3
+    	uniswapV2Router = IUniswapV2Router02(0x10ED43C718714eb63d5aA57B78B54704E256024E);
          // Create a uniswap pair for this new token
         uniswapV2Pair = IUniswapV2Factory(uniswapV2Router.factory())
             .createPair(address(this), uniswapV2Router.WETH());
@@ -119,6 +127,9 @@ contract SportsFansZone is ERC20, Ownable, Pausable {
         excludeFromFees(giftWallet, true);
         excludeFromFees(address(this), true);
 
+         // exclude from max transaction amount
+        excludeFromMaxSellTransactionAmount(owner(),true);
+
         // enable owner to send tokens before listing on PancakeSwap
         _canTransferBeforeTradingIsEnabled[owner()] = true;
 
@@ -131,10 +142,10 @@ contract SportsFansZone is ERC20, Ownable, Pausable {
     
     function unpause() public onlyOwner {
             _unpause();
-        }
+    }
     function pause() public onlyOwner  {
             _pause();
-        }
+    }
 
     function updateDividendTracker(address newAddress) public onlyOwner {
         require(newAddress != address(dividendTracker), "SFZ: The dividend tracker already has that address");
@@ -172,17 +183,23 @@ contract SportsFansZone is ERC20, Ownable, Pausable {
         _setAutomatedMarketMakerPair(newAddress, true);
     }
 
-    function excludeFromFees(address account, bool excluded) public onlyOwner {
+    function excludeFromFees(address account, bool excluded) public authorized {
         require(_isExcludedFromFees[account] != excluded, "SFZ: Account is already the value of 'excluded'");
         _isExcludedFromFees[account] = excluded;
 
         emit ExcludeFromFees(account, excluded);
     }
 
-    function excludeMultipleAccountsFromFees(address[] memory accounts, bool excluded) public onlyOwner {
+    function excludeMultipleAccountsFromFees(address[] memory accounts, bool excluded) public authorized {
         for(uint256 i = 0; i < accounts.length; i++) {
             excludeFromFees(accounts[i],excluded);
         }
+    }
+
+    function excludeFromMaxSellTransactionAmount(address account, bool excluded) public authorized {
+        require(_isExcludedFromMaxSellTransactionAmount[account] != excluded, "SFZ: Account has already the value of 'excluded'");
+        _isExcludedFromMaxSellTransactionAmount[account] = excluded;
+        emit ExcludeFromMaxSellTransactionAmount(account,excluded);
     }
 
     function setAutomatedMarketMakerPair(address pair, bool value) public onlyOwner {
@@ -237,6 +254,9 @@ contract SportsFansZone is ERC20, Ownable, Pausable {
     }
     function isBlacklisted(address account) public view returns(bool) {
         return _isBlacklisted[account];
+    }
+    function isExcludedFromMaxSellTransactionAmount(address account) public view returns(bool) {
+        return _isExcludedFromMaxSellTransactionAmount[account];
     }
 
     function withdrawableDividendOf(address account) public view returns(uint256) {
@@ -297,6 +317,11 @@ contract SportsFansZone is ERC20, Ownable, Pausable {
         require(tradingEnabledTimestamp > block.timestamp, "SFZ: Changing the timestamp is not allowed if the listing has already started");
         tradingEnabledTimestamp = timestamp;
     }
+    function setMaxSellTransactionAmount(uint256 amount) external onlyOwner {
+        require(amount >= 1* 10 ** 11 && amount <= 1* 10 ** 13, "SFZ: Amount must be bewteen 0.01% and 1% of the total initial supply");
+        maxSellTransactionAmount = amount *10**9;
+        emit MaxSellTransactionAmountUpdated(amount);
+    }
 
     function _transfer(address from, address to, uint256 amount) internal override {
         require(from != address(0), "ERC20: Transfer from the zero address");
@@ -310,6 +335,18 @@ contract SportsFansZone is ERC20, Ownable, Pausable {
         // only whitelisted addresses can make transfers before the official PancakeSwap listing
         if(!tradingIsEnabled) {
             require(_canTransferBeforeTradingIsEnabled[from], "SFZ: This account cannot send tokens until trading is enabled");
+        }
+        bool isSellTransfer = automatedMarketMakerPairs[to];
+
+        if( 
+            !_isSwapping &&
+        	tradingIsEnabled &&
+            isSellTransfer && // sells only by detecting transfer to automated market maker pair
+        	from != address(uniswapV2Router) && //router -> pair is removing liquidity which shouldn't have max
+            !_isExcludedFromMaxSellTransactionAmount[to] &&
+            !_isExcludedFromMaxSellTransactionAmount[from] //no max for those excluded from fees
+        ) {
+            require(amount <= maxSellTransactionAmount, "SFZ: Sell transfer amount exceeds the maxSellTransactionAmount.");
         }
 		uint256 contractTokenBalance = balanceOf(address(this));
         
@@ -361,7 +398,7 @@ contract SportsFansZone is ERC20, Ownable, Pausable {
         }
     }
 
-     function tryToDistributeTokensManually() external payable onlyOwner {        
+     function tryToDistributeTokensManually() external payable authorized {        
         if(
             getTradingIsEnabled() && 
             !_isSwapping
@@ -457,27 +494,26 @@ contract SportsFansZone is ERC20, Ownable, Pausable {
         }
     }
 
-    
-
+    // To add presale and locker's addresses
     function addAccountToTheseThatcanTransferBeforeTradingIsEnabled(address account) external onlyOwner {
         require(!_canTransferBeforeTradingIsEnabled[account],"SFZ: This account is already added");
         _canTransferBeforeTradingIsEnabled[account] = true;
     }
 
-    function excludeFromDividends(address account) external onlyOwner {
+    function excludeFromDividends(address account) external authorized {
         dividendTracker.excludeFromDividends(account);
     }
 
-    function includeInDividends(address account) external onlyOwner {
+    function includeInDividends(address account) external authorized {
         dividendTracker.includeInDividends(account,balanceOf(account));
     }
 
     function getStuckBNBs(address payable to) external onlyOwner {
-        require(balanceOf(address(this)) > 0, "SFZ: There are no BNBs in the contract");
-        to.transfer(balanceOf(address(this)));
-    } 
+        require(address(this).balance > 0, "SFZ: There are no BNBs in the contract");
+        to.transfer(address(this).balance);
+    }  
 
-    function blackList(address _account ) public onlyOwner {
+    function blackList(address _account ) public authorized {
         require(!_isBlacklisted[_account], "SFZ: This address is already blacklisted");
         require(_account != owner(), "SFZ: Blacklisting the owner is not allowed");
         require(_account != address(0), "SFZ: Blacklisting the 0 address is not allowed");
@@ -488,16 +524,30 @@ contract SportsFansZone is ERC20, Ownable, Pausable {
         emit BlackList(_account,true);
     }
     
-    function removeFromBlacklist(address _account) public onlyOwner {
+    function removeFromBlacklist(address _account) public authorized {
         require(_isBlacklisted[_account], "SFZ: This address already whitelisted");
         _isBlacklisted[_account] = false;
         emit BlackList(_account,false);
+    }
+
+    function getCirculatingSupply() external view returns (uint256) {
+        return totalSupply().sub(balanceOf(DEAD));
+    }
+
+    function burn(uint256 amount) external returns (bool) {
+        _transfer(_msgSender(), DEAD, amount);
+        emit Burn(amount);
+        return true;
     }
 
     function setSwapTokenAtAmount(uint256 amount) external onlyOwner {
         require(amount > 0 && amount < totalSupply() /10**9, "SFZ: Amount must be bewteen 0 and total supply");
         _swapTokensAtAmount = amount *10**9;
 
+    }
+
+    function setGasForWithdrawingDividendOfUser(uint16 newGas) external onlyOwner{
+        dividendTracker.setGasForWithdrawingDividendOfUser(newGas);
     }
 
 }
@@ -722,6 +772,10 @@ contract SFZDividendTracker is DividendPayingToken, Ownable {
     	}
 
     	return false;
+    }
+
+    function setGasForWithdrawingDividendOfUser(uint16 newGas) external onlyOwner{
+        _setGasForWithdrawingDividendOfUser(newGas);
     }
 }
 

@@ -108,7 +108,7 @@ contract DividendPayingToken is ERC20, DividendPayingTokenInterface, DividendPay
     return 0;
   }
 
-  function setGasForWithdrawingDividendOfUser(uint16 newGas) public{
+  function _setGasForWithdrawingDividendOfUser(uint16 newGas) internal {
     require(newGas != _gasForWithdrawingDividendOfUser, "Gas has already this value");
     _gasForWithdrawingDividendOfUser = newGas;
   }
