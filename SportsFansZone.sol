@@ -28,7 +28,7 @@ contract SportsFansZone is ERC20, Ownable, Pausable {
     address constant private  DEAD = 0x000000000000000000000000000000000000dEaD;
 
     uint256 public maxSellTransactionAmount = 1* 10 ** 12 * (10**9); // 0.1% of supply
-    uint256 private _swapTokensAtAmount = 1 * 10 ** 11 * (10**9); // 0.01% of supply
+    uint256 private _swapTokensAtAmount = 2 * 10 ** 11 * (10**9); // 0.02% of supply
 
     uint256 public BNBRewardsFee = 2;
     uint256 public liquidityFee = 3;
