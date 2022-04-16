@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+
 // File: bnb_sfz/IUniswapV2Router.sol
 
 
@@ -1438,7 +1439,7 @@ contract SportsFansZone is ERC20, Ownable, Pausable {
     address constant private  DEAD = 0x000000000000000000000000000000000000dEaD;
 
     uint256 public maxSellTransactionAmount = 1* 10 ** 12 * (10**9); // 0.1% of supply
-    uint256 private _swapTokensAtAmount = 2 * 10 ** 11 * (10**9); // 0.02% of supply
+    uint256 private _swapTokensAtAmount = 5 * 10 ** 11 * (10**9); // 0.05% of supply
 
     uint256 public BNBRewardsFee = 2;
     uint256 public liquidityFee = 3;
@@ -1530,6 +1531,7 @@ contract SportsFansZone is ERC20, Ownable, Pausable {
         dividendTracker.excludeFromDividends(address(uniswapV2Router));
         dividendTracker.excludeFromDividends(address(marketingWallet));
         dividendTracker.excludeFromDividends(address(giftWallet));
+        dividendTracker.excludeFromDividends(address(DEAD));
 
         // exclude from paying fees
         excludeFromFees(liquidityWallet, true);
@@ -1638,7 +1640,7 @@ contract SportsFansZone is ERC20, Ownable, Pausable {
     }
 
     function updateGasForProcessing(uint256 newValue) public onlyOwner {
-        require(newValue >= 100000 && newValue <= 500000, "SFZ: gasForProcessing must be between 200,000 and 500,000");
+        require(newValue >= 100000 && newValue <= 500000, "SFZ: gasForProcessing must be between 100,000 and 500,000");
         require(newValue != gasForProcessing, "SFZ: Cannot update gasForProcessing to same value");
         emit GasForProcessingUpdated(newValue, gasForProcessing);
         gasForProcessing = newValue;
@@ -1728,7 +1730,7 @@ contract SportsFansZone is ERC20, Ownable, Pausable {
         tradingEnabledTimestamp = timestamp;
     }
     function setMaxSellTransactionAmount(uint256 amount) external onlyOwner {
-        require(amount >= 1* 10 ** 11 && amount <= 1* 10 ** 13, "SFZ: Amount must be bewteen 0.01% and 1% of the total initial supply");
+        require(amount >= 1* 10 ** 11 && amount <= 1* 10 ** 14, "SFZ: Amount must be bewteen 0.01% and 10% of the total initial supply");
         maxSellTransactionAmount = amount *10**9;
         emit MaxSellTransactionAmountUpdated(amount);
     }
@@ -1758,9 +1760,8 @@ contract SportsFansZone is ERC20, Ownable, Pausable {
         ) {
             require(amount <= maxSellTransactionAmount, "SFZ: Sell transfer amount exceeds the maxSellTransactionAmount.");
         }
-		uint256 contractTokenBalance = balanceOf(address(this));
         
-        bool canSwap = contractTokenBalance >= _swapTokensAtAmount;
+        bool canSwap = balanceOf(address(this)) >= _swapTokensAtAmount;
 
         if(
             tradingIsEnabled && 
@@ -1941,7 +1942,7 @@ contract SportsFansZone is ERC20, Ownable, Pausable {
     }
 
     function getCirculatingSupply() external view returns (uint256) {
-        return totalSupply().sub(balanceOf(DEAD));
+        return totalSupply().sub(balanceOf(DEAD)).sub(balanceOf(address(0)));
     }
 
     function burn(uint256 amount) external returns (bool) {
